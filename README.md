@@ -67,3 +67,12 @@ AI Drafter now supports:
 - Generating multiple screens from one prompt
 - Adding prototype flow arrows between them
 - Naming and spacing screens automatically
+
+## Phase 8 - Design System Integration
+
+This phase adds:
+- Support for mapping generated UI elements to existing Figma component libraries
+- Optional toggle: “Use Existing Components”
+- Fallback rendering if no match is found
+
+You can now plug AI Drafter into your real design systems.

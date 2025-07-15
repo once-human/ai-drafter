@@ -180,7 +180,41 @@ function applyAutoLayoutProps(frame, props = {}) {
   if (props.minHeight) frame.minHeight = props.minHeight;
 }
 
-async function renderUIInFigma(ui) {
+let localComponentMap = new Map();
+
+function cacheLocalComponents() {
+  localComponentMap.clear();
+  const all = figma.root.findAllWithCriteria({ types: ['COMPONENT'] });
+  for (const comp of all) {
+    localComponentMap.set(comp.name, comp);
+  }
+}
+
+function componentMatcher(type, labelOrName) {
+  // Simple mapping, can be extended
+  const map = {
+    button: ['Button/Primary', 'Button', 'Button/Default'],
+    card: ['Card/Default', 'Card'],
+    header: ['Header', 'Header/Default', 'Header/Primary'],
+    input: ['Input', 'Input/Default'],
+    navbar: ['Navbar', 'Navbar/Basic']
+  };
+  const candidates = map[type] || [];
+  for (const name of candidates) {
+    if (localComponentMap.has(name)) return localComponentMap.get(name);
+  }
+  // Try fuzzy match
+  for (const [name, comp] of localComponentMap.entries()) {
+    if (name.toLowerCase().includes(type)) return comp;
+    if (labelOrName && name.toLowerCase().includes((labelOrName + '').toLowerCase())) return comp;
+  }
+  return null;
+}
+
+// Cache local components on plugin load
+cacheLocalComponents();
+
+async function renderUIInFigma(ui, useComponents = false) {
   resetComponentRegistry();
   figma.currentPage.selection = [];
 
@@ -191,7 +225,7 @@ async function renderUIInFigma(ui) {
     const screenFrames = [];
     for (let i = 0; i < ui.screens.length; i++) {
       const screen = ui.screens[i];
-      const frame = await createNodeFromComponent({ ...screen, type: 'screen' }, { x, y });
+      const frame = await createNodeFromComponent({ ...screen, type: 'screen' }, { x, y }, useComponents);
       frame.name = screen.name || `Screen ${i + 1}`;
       figma.currentPage.appendChild(frame);
       screenFrames.push(frame);
@@ -214,13 +248,13 @@ async function renderUIInFigma(ui) {
   }
 
   // Single screen fallback
-  const root = await createNodeFromComponent(ui, { x: 100, y: 100 });
+  const root = await createNodeFromComponent(ui, { x: 100, y: 100 }, useComponents);
   figma.currentPage.appendChild(root);
   figma.viewport.scrollAndZoomIntoView([root]);
   figma.currentPage.selection = [root];
 }
 
-async function createNodeFromComponent(component, pos) {
+async function createNodeFromComponent(component, pos, useComponents = false) {
   if (component.type === 'screen' || component.type === 'frame') {
     const frame = figma.createFrame();
     frame.name = component.name || 'Frame';
@@ -229,7 +263,7 @@ async function createNodeFromComponent(component, pos) {
     applyAutoLayoutProps(frame, component);
     if (component.items || component.components || component.children) {
       const children = (component.items || component.components || component.children).map((child, i) =>
-        createNodeFromComponent(child, { x: 0, y: 0 })
+        createNodeFromComponent(child, { x: 0, y: 0 }, useComponents)
       );
       const nodes = await Promise.all(children);
       nodes.forEach(n => {
@@ -263,16 +297,28 @@ async function createNodeFromComponent(component, pos) {
     }
     return text;
   } else if (component.type === 'button') {
+    if (useComponents) {
+      const match = componentMatcher('button', component.label);
+      if (match) return match.createInstance();
+    }
     const comp = getOrCreateComponent('button', component.label || 'Button', component.style || {});
     const inst = comp.createInstance();
     inst.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
     return inst;
   } else if (component.type === 'card') {
+    if (useComponents) {
+      const match = componentMatcher('card', component.name);
+      if (match) return match.createInstance();
+    }
     const comp = getOrCreateComponent('card', component.name || 'Card', component.style || {});
     const inst = comp.createInstance();
     inst.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
     return inst;
   } else if (component.type === 'header') {
+    if (useComponents) {
+      const match = componentMatcher('header', component.name);
+      if (match) return match.createInstance();
+    }
     const comp = getOrCreateComponent('header', component.name || 'Header', component.style || {});
     const inst = comp.createInstance();
     inst.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
@@ -328,12 +374,13 @@ figma.ui.onmessage = async (msg) => {
   }
   if (msg.type === 'insert-ui') {
     const layout = msg.layout;
+    const useComponents = !!msg.useComponents;
     if (!layout) {
       figma.notify('No layout to insert.');
       return;
     }
     try {
-      await renderUIInFigma(layout);
+      await renderUIInFigma(layout, useComponents);
       figma.notify('UI inserted to Figma!');
     } catch (e) {
       figma.notify('Error inserting UI: ' + e.message);

@@ -2,6 +2,7 @@ const btn = document.getElementById('generate-btn');
 const promptInput = document.getElementById('prompt');
 const apiKeyInput = document.getElementById('api-key');
 const saveKeyBtn = document.getElementById('save-key-btn');
+const useComponentsCheckbox = document.getElementById('useComponents');
 
 // Request stored API key on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -20,6 +21,7 @@ btn.onclick = function () {
   const imageInput = document.getElementById('image');
   const imageFile = imageInput.files[0];
   const apiKey = apiKeyInput.value.trim();
+  const useComponents = !!useComponentsCheckbox.checked;
 
   if (!apiKey) {
     window.postMessage({ pluginMessage: { type: 'error', message: 'Please enter your OpenAI API key.' } }, '*');
@@ -36,6 +38,7 @@ btn.onclick = function () {
           prompt,
           tokens,
           apiKey,
+          useComponents,
           imageName: imageFile.name,
           base64image
         }
@@ -49,6 +52,7 @@ btn.onclick = function () {
         prompt,
         tokens,
         apiKey,
+        useComponents,
         imageName: null,
         base64image: null
       }
@@ -67,51 +71,53 @@ function renderPreview(layout) {
     insertBtn.disabled = true;
     return;
   }
+  const useComponents = !!useComponentsCheckbox.checked;
   if (layout.type === 'multi-screen' && Array.isArray(layout.screens)) {
     let out = '';
     layout.screens.forEach(screen => {
       out += `Screen: ${screen.name || ''}\n`;
       const children = screen.components || screen.items || screen.children || [];
-      for (const c of children) out += formatLayoutPreview(c, 1);
+      for (const c of children) out += formatLayoutPreview(c, 1, useComponents);
       out += '\n';
     });
     previewDiv.textContent = out;
     insertBtn.disabled = false;
     return;
   }
-  previewDiv.textContent = formatLayoutPreview(layout);
+  previewDiv.textContent = formatLayoutPreview(layout, 0, useComponents);
   insertBtn.disabled = false;
 }
 
-function formatLayoutPreview(node, indent = 0) {
+function formatLayoutPreview(node, indent = 0, useComponents = false) {
   if (!node) return '';
   const pad = '  '.repeat(indent);
   let out = '';
   if (node.type === 'screen') {
     out += `${pad}Screen: ${node.name || ''}\n`;
     const children = node.components || node.items || [];
-    for (const c of children) out += formatLayoutPreview(c, indent + 1);
+    for (const c of children) out += formatLayoutPreview(c, indent + 1, useComponents);
   } else if (node.type === 'frame') {
     out += `${pad}- Frame: ${node.name || ''}\n`;
     const children = node.items || node.components || [];
-    for (const c of children) out += formatLayoutPreview(c, indent + 1);
+    for (const c of children) out += formatLayoutPreview(c, indent + 1, useComponents);
   } else if (node.type === 'text') {
     out += `${pad}- Text: "${node.value || ''}"\n`;
   } else if (node.type === 'button') {
-    out += `${pad}- Button: ${node.label || ''}\n`;
+    out += `${pad}- Button: ${node.label || ''}${useComponents ? ' [DS Button]' : ''}\n`;
   } else if (node.type === 'input') {
-    out += `${pad}- Input: ${node.label || ''}\n`;
+    out += `${pad}- Input: ${node.label || ''}${useComponents ? ' [DS Input]' : ''}\n`;
   } else if (node.type === 'card') {
-    out += `${pad}- Card: ${node.name || ''}\n`;
+    out += `${pad}- Card: ${node.name || ''}${useComponents ? ' [DS Card]' : ''}\n`;
     const children = node.items || node.components || [];
-    for (const c of children) out += formatLayoutPreview(c, indent + 1);
+    for (const c of children) out += formatLayoutPreview(c, indent + 1, useComponents);
   }
   return out;
 }
 
 insertBtn.onclick = function () {
   if (!cachedLayout) return;
-  parent.postMessage({ pluginMessage: { type: 'insert-ui', layout: cachedLayout } }, '*');
+  const useComponents = !!useComponentsCheckbox.checked;
+  parent.postMessage({ pluginMessage: { type: 'insert-ui', layout: cachedLayout, useComponents } }, '*');
 };
 
 window.onmessage = (event) => {
