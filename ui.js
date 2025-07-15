@@ -10,6 +10,8 @@ const copyCodeBtn = document.getElementById('copy-code-btn');
 const historyList = document.getElementById('history-list');
 const undoBtn = document.getElementById('undo-btn');
 let history = [];
+const feedbackList = document.getElementById('feedback-list');
+let comments = [];
 
 // Request stored API key on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -322,6 +324,95 @@ undoBtn.onclick = function () {
   parent.postMessage({ pluginMessage: { type: 'undo-last-insert' } }, '*');
 };
 
+function renderFeedback(layout) {
+  feedbackList.innerHTML = '';
+  if (!layout) return;
+  // For each screen/component, allow feedback
+  if (layout.type === 'multi-screen' && Array.isArray(layout.screens)) {
+    layout.screens.forEach((screen, sIdx) => {
+      renderFeedbackBlock(screen, [sIdx], `Screen: ${screen.name || ''}`);
+      (screen.components || []).forEach((comp, cIdx) => {
+        renderFeedbackBlock(comp, [sIdx, cIdx], comp.label || comp.name || comp.type);
+      });
+    });
+  } else {
+    renderFeedbackBlock(layout, [], layout.name || layout.label || layout.type);
+    (layout.components || []).forEach((comp, cIdx) => {
+      renderFeedbackBlock(comp, [cIdx], comp.label || comp.name || comp.type);
+    });
+  }
+}
+
+function renderFeedbackBlock(targetObj, path, label) {
+  const div = document.createElement('div');
+  div.className = 'feedback-item';
+  const meta = document.createElement('div');
+  meta.className = 'feedback-meta';
+  meta.textContent = label;
+  div.appendChild(meta);
+  // Existing comments
+  comments.filter(c => arrayEq(c.target, path)).forEach(c => {
+    const cmt = document.createElement('div');
+    cmt.className = 'feedback-comment';
+    cmt.textContent = c.comment;
+    div.appendChild(cmt);
+    if (c.mentions && c.mentions.length) {
+      const m = document.createElement('div');
+      m.className = 'feedback-mentions';
+      m.textContent = 'Mentions: ' + c.mentions.join(', ');
+      div.appendChild(m);
+    }
+    if (c.aiSuggestion) {
+      const ai = document.createElement('div');
+      ai.className = 'feedback-ai';
+      ai.textContent = 'AI Feedback: ' + c.aiSuggestion;
+      div.appendChild(ai);
+    }
+  });
+  // Input for new comment
+  const input = document.createElement('input');
+  input.className = 'feedback-input';
+  input.placeholder = 'Add a comment...';
+  div.appendChild(input);
+  // Mention input
+  const mention = document.createElement('input');
+  mention.className = 'feedback-mention';
+  mention.placeholder = '@mention';
+  div.appendChild(mention);
+  // Actions
+  const actions = document.createElement('div');
+  actions.className = 'feedback-actions';
+  // Add Note
+  const addBtn = document.createElement('button');
+  addBtn.textContent = '💬 Add Note';
+  addBtn.onclick = () => {
+    if (!input.value.trim()) return;
+    comments.push({
+      target: path,
+      comment: input.value.trim(),
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      mentions: mention.value ? mention.value.split(',').map(s => s.trim()).filter(Boolean) : []
+    });
+    renderFeedback(previewData);
+  };
+  actions.appendChild(addBtn);
+  // AI Suggestion
+  const aiBtn = document.createElement('button');
+  aiBtn.textContent = '🤖 Suggest Improvements';
+  aiBtn.onclick = () => {
+    parent.postMessage({ pluginMessage: { type: 'get-ai-feedback', componentJson: targetObj, screenName: label } }, '*');
+  };
+  actions.appendChild(aiBtn);
+  div.appendChild(actions);
+  feedbackList.appendChild(div);
+}
+function arrayEq(a, b) {
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
 // Add to history on preview
 window.onmessage = (event) => {
   const { type, loading, apiKey, message, layout, error } = event.data.pluginMessage || {};
@@ -347,8 +438,19 @@ window.onmessage = (event) => {
     renderPreview(layout);
     renderManualPreview(layout);
     addToHistory(layout);
+    renderFeedback(layout);
   } else if (type === 'code-output') {
     codeOutput.value = message || '';
+  } else if (type === 'ai-feedback') {
+    // Find comment for target, add aiSuggestion
+    const { target, suggestion } = event.data.pluginMessage;
+    let found = comments.find(c => arrayEq(c.target, target));
+    if (!found) {
+      comments.push({ target, comment: '', aiSuggestion: suggestion });
+    } else {
+      found.aiSuggestion = suggestion;
+    }
+    renderFeedback(previewData);
   }
 };
 

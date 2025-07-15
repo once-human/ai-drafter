@@ -467,4 +467,42 @@ figma.ui.onmessage = async (msg) => {
     }
     return;
   }
+  if (msg.type === 'get-ai-feedback') {
+    const { componentJson, screenName } = msg;
+    const apiKey = await figma.clientStorage.getAsync('openai_api_key');
+    if (!apiKey) {
+      figma.ui.postMessage({ type: 'ai-feedback', target: msg.target, suggestion: 'Missing OpenAI API key.' });
+      return;
+    }
+    try {
+      const systemPrompt = `You are a UI/UX design reviewer. Based on this layout, suggest improvements or best practices. Be concise, practical, and honest.`;
+      const userPrompt = `Screen/component: ${screenName}\n\n${JSON.stringify(componentJson, null, 2)}`;
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          temperature: 0.2,
+          max_tokens: 400
+        })
+      });
+      if (!response.ok) throw new Error('OpenAI API error: ' + response.status);
+      const data = await response.json();
+      let suggestion = data.choices?.[0]?.message?.content || '';
+      if (suggestion.startsWith('```')) {
+        suggestion = suggestion.replace(/```[a-zA-Z]*|```/g, '').trim();
+      }
+      figma.ui.postMessage({ type: 'ai-feedback', target: msg.target || [], suggestion });
+    } catch (e) {
+      figma.ui.postMessage({ type: 'ai-feedback', target: msg.target || [], suggestion: 'Error: ' + e.message });
+    }
+    return;
+  }
 }; 

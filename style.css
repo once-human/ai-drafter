@@ -221,4 +221,83 @@ button:hover {
 .history-item-btns button:hover {
   background: #007BFF;
   color: #fff;
+}
+.feedback-section {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  border: 1px solid #e0eaff;
+}
+#feedback-list {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.feedback-item {
+  background: #fff;
+  border: 1px solid #e0eaff;
+  border-radius: 6px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.feedback-meta {
+  font-size: 0.92rem;
+  color: #666;
+  margin-bottom: 2px;
+}
+.feedback-comment {
+  font-size: 1rem;
+  color: #222;
+  margin-bottom: 2px;
+}
+.feedback-mentions {
+  font-size: 0.92rem;
+  color: #007BFF;
+}
+.feedback-ai {
+  background: #eaf6ff;
+  border-left: 3px solid #007BFF;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 0.98rem;
+  color: #007BFF;
+  margin-top: 4px;
+}
+.feedback-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.feedback-actions button {
+  background: #e0eaff;
+  color: #222;
+  border: none;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.98rem;
+  cursor: pointer;
+}
+.feedback-actions button:hover {
+  background: #007BFF;
+  color: #fff;
+}
+.feedback-input {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  border: 1px solid #d0d7e2;
+  font-size: 1rem;
+}
+.feedback-mention {
+  width: 120px;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid #d0d7e2;
+  font-size: 0.98rem;
 } 

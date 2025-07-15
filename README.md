@@ -97,3 +97,10 @@ This phase allows:
 - Users can re-insert or export from history
 - “Undo Last Insert” removes previously inserted nodes
 - Improves iteration workflow and design feedback loops
+
+## Phase 13 - Real-Time Collaboration & AI Feedback
+
+- Users can leave notes per screen/component
+- Tag teammates for feedback using @mention
+- Request AI-powered layout improvement suggestions
+- Promotes better iteration and team workflows
