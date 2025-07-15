@@ -30,3 +30,17 @@ Users can now upload screenshots (e.g. desktop UI) and generate a mobile layout 
 - Plugin sends image + text to GPT-4o Vision
 - GPT returns layout in JSON
 - JSON is rendered into editable components inside Figma
+
+## Phase 4 - Design System & API Key
+
+This phase allows:
+- Users to securely enter their own OpenAI API Key (saved using Figma client storage)
+- Optional design token input to customize generated UIs
+
+Example design token JSON:
+{
+  "primaryColor": "#007BFF",
+  "fontFamily": "Inter",
+  "buttonRadius": "8px",
+  "padding": "16px"
+}

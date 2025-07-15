@@ -7,10 +7,14 @@ const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
  * @param {string} prompt
  * @returns {Promise<GeneratedUI>}
  */
-async function generateUIFromPrompt(prompt) {
+async function generateUIFromPrompt(prompt, apiKey, tokens) {
+  let systemPrompt = `You are a UI assistant. Based on the user's prompt, image (optional), and design tokens (optional), return a complete structured JSON layout suitable for rendering in Figma. Use the design tokens strictly to influence color, spacing, font, and styling.\nReturn only valid JSON.`;
+  if (tokens) {
+    systemPrompt += `\nDesign system details:\n${tokens}`;
+  }
   const systemMessage = {
     role: 'system',
-    content: `You are a UI layout generator. Return a minimal JSON structure for a Figma-like UI. Use only 'screen', 'frame', and 'text' types. Use 'layout' as 'vertical' or 'horizontal' for frames. Example:\n{\n  "type": "screen",\n  "name": "Generated Screen",\n  "components": [\n    {\n      "type": "frame",\n      "name": "Header",\n      "layout": "horizontal",\n      "items": [\n        {\n          "type": "text",\n          "value": "Welcome!",\n          "style": { "fontSize": 24, "fontWeight": "bold" }\n        }\n      ]\n    }\n  ]\n}`
+    content: systemPrompt
   };
   const userMessage = { role: 'user', content: prompt };
 
@@ -18,7 +22,7 @@ async function generateUIFromPrompt(prompt) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_API_KEY}`
+      'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
       model: 'gpt-4o',
@@ -50,16 +54,20 @@ async function generateUIFromPrompt(prompt) {
  * @param {string} base64image
  * @returns {Promise<GeneratedUI>}
  */
-async function generateUIFromImage(prompt, base64image) {
+async function generateUIFromImage(prompt, base64image, apiKey, tokens) {
   if (!base64image) throw new Error('No image data provided');
   // Check image size (base64 is ~33% larger than binary)
   const imageBytes = Math.floor((base64image.length * 3) / 4);
   if (imageBytes > MAX_IMAGE_SIZE) {
     throw new Error('Image is too large (max 2MB)');
   }
+  let systemPrompt = `You are a UI assistant. Based on the user's prompt, image (optional), and design tokens (optional), return a complete structured JSON layout suitable for rendering in Figma. Use the design tokens strictly to influence color, spacing, font, and styling.\nReturn only valid JSON.`;
+  if (tokens) {
+    systemPrompt += `\nDesign system details:\n${tokens}`;
+  }
   const systemMessage = {
     role: 'system',
-    content: `You are an AI UI assistant. Given a screenshot and context, return a layout description in JSON format that can be rendered in Figma. Output only valid JSON.`
+    content: systemPrompt
   };
   const userMessage = {
     role: 'user',
@@ -72,7 +80,7 @@ async function generateUIFromImage(prompt, base64image) {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${OPENAI_API_KEY}`
+      'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
       model: 'gpt-4o',
@@ -150,20 +158,38 @@ async function createNodeFromComponent(component, pos) {
 figma.showUI(__html__, { width: 360, height: 520 });
 
 figma.ui.onmessage = async (msg) => {
+  if (msg.type === 'get-api-key') {
+    const storedKey = await figma.clientStorage.getAsync('openai_api_key');
+    figma.ui.postMessage({ type: 'api-key', apiKey: storedKey || '' });
+    return;
+  }
+  if (msg.type === 'save-api-key') {
+    await figma.clientStorage.setAsync('openai_api_key', msg.apiKey || '');
+    figma.ui.postMessage({ type: 'success', message: 'API key saved!' });
+    return;
+  }
   if (msg.type === 'generate-ui') {
     const prompt = msg.prompt?.trim();
     const base64image = msg.base64image;
+    const apiKey = msg.apiKey?.trim();
+    const tokens = msg.tokens?.trim();
+    if (!apiKey) {
+      figma.notify('API key is missing');
+      figma.ui.postMessage({ type: 'loading', loading: false });
+      return;
+    }
     if (!prompt && !base64image) {
       figma.notify('Please enter a prompt or upload an image.');
+      figma.ui.postMessage({ type: 'loading', loading: false });
       return;
     }
     figma.ui.postMessage({ type: 'loading', loading: true });
     try {
       let ui;
       if (base64image) {
-        ui = await generateUIFromImage(prompt, base64image);
+        ui = await generateUIFromImage(prompt, base64image, apiKey, tokens);
       } else {
-        ui = await generateUIFromPrompt(prompt);
+        ui = await generateUIFromPrompt(prompt, apiKey, tokens);
       }
       await renderUIInFigma(ui);
       figma.notify('UI generated!');
