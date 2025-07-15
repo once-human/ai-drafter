@@ -83,3 +83,10 @@ This phase introduces:
 - AI-generated UI components now support states like hover, pressed, disabled
 - Plugin maps states to appropriate Figma variants
 - Falls back gracefully if no variant match is found
+
+## Phase 10 - Manual Tweak UI Before Insertion
+
+This phase allows:
+- Inline editing of AI-generated layout (text, inclusion, order)
+- Users now control exactly what gets inserted
+- Boosts trust and flexibility for designers

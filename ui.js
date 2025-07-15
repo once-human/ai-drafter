@@ -115,10 +115,122 @@ function formatLayoutPreview(node, indent = 0, useComponents = false) {
   return out;
 }
 
+let previewData = null;
+const manualPreviewDiv = document.getElementById('manual-preview');
+
+function deepClone(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
+function renderManualPreview(layout) {
+  previewData = deepClone(layout);
+  manualPreviewDiv.innerHTML = '';
+  if (!layout) return;
+  if (layout.type === 'multi-screen' && Array.isArray(layout.screens)) {
+    layout.screens.forEach((screen, sIdx) => {
+      const header = document.createElement('div');
+      header.textContent = `Screen: ${screen.name || ''}`;
+      header.style.fontWeight = 'bold';
+      header.style.margin = '8px 0 2px 0';
+      manualPreviewDiv.appendChild(header);
+      renderManualBlockList(screen.components || screen.items || [], [sIdx]);
+    });
+  } else {
+    renderManualBlockList(layout.components || layout.items || [], []);
+  }
+}
+
+function renderManualBlockList(items, path) {
+  items.forEach((item, idx) => {
+    if (item == null) return;
+    if (item.active === false) return;
+    const block = document.createElement('div');
+    block.className = 'manual-block';
+    // Include toggle
+    const toggle = document.createElement('input');
+    toggle.type = 'checkbox';
+    toggle.checked = item.active !== false;
+    toggle.className = 'toggle';
+    toggle.title = 'Include';
+    toggle.onchange = () => {
+      setPreviewDataActive(path, idx, toggle.checked);
+      renderManualPreview(previewData);
+    };
+    block.appendChild(toggle);
+    // Editable label
+    const label = document.createElement('input');
+    label.type = 'text';
+    label.value = item.label || item.name || item.value || '';
+    label.onchange = () => {
+      setPreviewDataLabel(path, idx, label.value);
+    };
+    block.appendChild(label);
+    // State tag
+    if (item.state) {
+      const stateTag = document.createElement('span');
+      stateTag.textContent = `[${item.state}]`;
+      stateTag.style.fontSize = '0.95em';
+      stateTag.style.color = '#007BFF';
+      block.appendChild(stateTag);
+    }
+    // Up/Down buttons
+    const upBtn = document.createElement('button');
+    upBtn.textContent = '↑';
+    upBtn.className = 'move-btn';
+    upBtn.onclick = () => {
+      movePreviewData(path, idx, -1);
+      renderManualPreview(previewData);
+    };
+    block.appendChild(upBtn);
+    const downBtn = document.createElement('button');
+    downBtn.textContent = '↓';
+    downBtn.className = 'move-btn';
+    downBtn.onclick = () => {
+      movePreviewData(path, idx, 1);
+      renderManualPreview(previewData);
+    };
+    block.appendChild(downBtn);
+    manualPreviewDiv.appendChild(block);
+    // Recursively render children
+    if (item.items || item.components) {
+      renderManualBlockList(item.items || item.components, path.concat(idx));
+    }
+  });
+}
+
+function setPreviewDataActive(path, idx, active) {
+  let arr = previewData;
+  for (const p of path) arr = arr.screens ? arr.screens[p] : arr.components || arr.items;
+  const items = arr.components || arr.items;
+  if (items && items[idx]) items[idx].active = active;
+}
+function setPreviewDataLabel(path, idx, value) {
+  let arr = previewData;
+  for (const p of path) arr = arr.screens ? arr.screens[p] : arr.components || arr.items;
+  const items = arr.components || arr.items;
+  if (items && items[idx]) {
+    if (items[idx].label !== undefined) items[idx].label = value;
+    else if (items[idx].name !== undefined) items[idx].name = value;
+    else if (items[idx].value !== undefined) items[idx].value = value;
+  }
+}
+function movePreviewData(path, idx, dir) {
+  let arr = previewData;
+  for (const p of path) arr = arr.screens ? arr.screens[p] : arr.components || arr.items;
+  const items = arr.components || arr.items;
+  if (!items) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= items.length) return;
+  const temp = items[idx];
+  items[idx] = items[newIdx];
+  items[newIdx] = temp;
+}
+
 insertBtn.onclick = function () {
-  if (!cachedLayout) return;
+  if (!previewData) return;
   const useComponents = !!useComponentsCheckbox.checked;
-  parent.postMessage({ pluginMessage: { type: 'insert-ui', layout: cachedLayout, useComponents } }, '*');
+  const filtered = filterInactive(deepClone(previewData));
+  parent.postMessage({ pluginMessage: { type: 'insert-ui', layout: filtered, useComponents } }, '*');
 };
 
 window.onmessage = (event) => {
@@ -143,5 +255,19 @@ window.onmessage = (event) => {
   } else if (type === 'preview') {
     cachedLayout = layout;
     renderPreview(layout);
+    renderManualPreview(layout);
   }
-}; 
+};
+
+function filterInactive(obj) {
+  if (Array.isArray(obj)) {
+    return obj.filter(x => x.active !== false).map(filterInactive);
+  } else if (typeof obj === 'object' && obj !== null) {
+    const o = { ...obj };
+    if (o.components) o.components = filterInactive(o.components);
+    if (o.items) o.items = filterInactive(o.items);
+    if (o.screens) o.screens = filterInactive(o.screens);
+    return o;
+  }
+  return obj;
+} 
