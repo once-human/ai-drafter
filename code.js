@@ -104,23 +104,76 @@ async function generateUIFromImage(prompt, base64image, apiKey, tokens) {
   }
 }
 
-/**
- * Render the generated UI JSON in Figma
- * @param {GeneratedUI} ui
- */
+let componentRegistry = {};
+
+function resetComponentRegistry() {
+  componentRegistry = {};
+}
+
+function getOrCreateComponent(type, name, style = {}) {
+  const key = `${type}:${name}`;
+  if (componentRegistry[key]) {
+    return componentRegistry[key];
+  }
+  let component;
+  if (type === 'button') {
+    component = figma.createComponent();
+    component.name = `Button/${name}`;
+    component.resize(120, 40);
+    component.fills = [{ type: 'SOLID', color: hexToRgb(style.backgroundColor || '#007BFF') }];
+    const text = figma.createText();
+    text.characters = name;
+    text.fontSize = style.fontSize || 16;
+    text.fills = [{ type: 'SOLID', color: hexToRgb(style.color || '#fff') }];
+    text.x = 16;
+    text.y = 10;
+    component.appendChild(text);
+    text.x = (component.width - text.width) / 2;
+    text.y = (component.height - text.height) / 2;
+  } else if (type === 'card') {
+    component = figma.createComponent();
+    component.name = `Card/${name}`;
+    component.resize(240, 120);
+    component.fills = [{ type: 'SOLID', color: hexToRgb(style.backgroundColor || '#f8f9fa') }];
+    component.cornerRadius = style.radius || 12;
+  } else if (type === 'header') {
+    component = figma.createComponent();
+    component.name = `Header/${name}`;
+    component.resize(320, 48);
+    component.fills = [{ type: 'SOLID', color: hexToRgb(style.backgroundColor || '#007BFF') }];
+    const text = figma.createText();
+    text.characters = name;
+    text.fontSize = style.fontSize || 20;
+    text.fills = [{ type: 'SOLID', color: hexToRgb(style.color || '#fff') }];
+    component.appendChild(text);
+    text.x = 16;
+    text.y = (component.height - text.height) / 2;
+  }
+  componentRegistry[key] = component;
+  figma.currentPage.appendChild(component);
+  return component;
+}
+
+function hexToRgb(hex) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map(x => x + x).join('');
+  const num = parseInt(hex, 16);
+  return {
+    r: ((num >> 16) & 255) / 255,
+    g: ((num >> 8) & 255) / 255,
+    b: (num & 255) / 255
+  };
+}
+
 async function renderUIInFigma(ui) {
-  // Remove previous selection
+  resetComponentRegistry();
   figma.currentPage.selection = [];
-  // Start at (100, 100)
   const root = await createNodeFromComponent(ui, { x: 100, y: 100 });
   figma.currentPage.appendChild(root);
   figma.viewport.scrollAndZoomIntoView([root]);
   figma.currentPage.selection = [root];
 }
 
-/**
- * Recursively create Figma nodes from component JSON
- */
 async function createNodeFromComponent(component, pos) {
   if (component.type === 'screen' || component.type === 'frame') {
     const frame = figma.createFrame();
@@ -149,8 +202,16 @@ async function createNodeFromComponent(component, pos) {
       if (component.style.fontWeight) text.fontName = { family: 'Inter', style: component.style.fontWeight === 'bold' ? 'Bold' : 'Regular' };
     }
     return text;
+  } else if (component.type === 'button') {
+    const comp = getOrCreateComponent('button', component.label || 'Button', component.style || {});
+    return comp.createInstance();
+  } else if (component.type === 'card') {
+    const comp = getOrCreateComponent('card', component.name || 'Card', component.style || {});
+    return comp.createInstance();
+  } else if (component.type === 'header') {
+    const comp = getOrCreateComponent('header', component.name || 'Header', component.style || {});
+    return comp.createInstance();
   } else {
-    // Unknown type, skip
     return figma.createFrame();
   }
 }
@@ -191,12 +252,26 @@ figma.ui.onmessage = async (msg) => {
       } else {
         ui = await generateUIFromPrompt(prompt, apiKey, tokens);
       }
-      await renderUIInFigma(ui);
-      figma.notify('UI generated!');
+      figma.ui.postMessage({ type: 'preview', layout: ui });
     } catch (e) {
-      figma.notify('Error: ' + e.message);
+      figma.ui.postMessage({ type: 'error', error: e.message });
     } finally {
       figma.ui.postMessage({ type: 'loading', loading: false });
     }
+    return;
+  }
+  if (msg.type === 'insert-ui') {
+    const layout = msg.layout;
+    if (!layout) {
+      figma.notify('No layout to insert.');
+      return;
+    }
+    try {
+      await renderUIInFigma(layout);
+      figma.notify('UI inserted to Figma!');
+    } catch (e) {
+      figma.notify('Error inserting UI: ' + e.message);
+    }
+    return;
   }
 }; 

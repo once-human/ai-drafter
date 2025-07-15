@@ -52,4 +52,34 @@ button {
 }
 button:hover {
   background: #0056b3;
+}
+.preview-section {
+  margin-top: 24px;
+  padding: 16px;
+  background: #f4f8ff;
+  border-radius: 8px;
+  border: 1px solid #e0eaff;
+}
+.preview-box {
+  min-height: 48px;
+  background: #fff;
+  border: 1px solid #e0eaff;
+  border-radius: 6px;
+  padding: 12px;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-size: 0.98rem;
+  color: #222;
+  margin-bottom: 12px;
+  white-space: pre-wrap;
+}
+#insert-btn {
+  width: 100%;
+  background: #28a745;
+  color: #fff;
+  margin-top: 4px;
+}
+#insert-btn:disabled {
+  background: #b7e2c2;
+  color: #fff;
+  cursor: not-allowed;
 } 

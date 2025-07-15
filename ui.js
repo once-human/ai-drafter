@@ -56,12 +56,59 @@ btn.onclick = function () {
   }
 };
 
+let cachedLayout = null;
+const previewDiv = document.getElementById('preview');
+const insertBtn = document.getElementById('insert-btn');
+insertBtn.disabled = true;
+
+function renderPreview(layout) {
+  if (!layout) {
+    previewDiv.textContent = 'No layout to preview.';
+    insertBtn.disabled = true;
+    return;
+  }
+  previewDiv.textContent = formatLayoutPreview(layout);
+  insertBtn.disabled = false;
+}
+
+function formatLayoutPreview(node, indent = 0) {
+  if (!node) return '';
+  const pad = '  '.repeat(indent);
+  let out = '';
+  if (node.type === 'screen') {
+    out += `${pad}Screen: ${node.name || ''}\n`;
+    const children = node.components || node.items || [];
+    for (const c of children) out += formatLayoutPreview(c, indent + 1);
+  } else if (node.type === 'frame') {
+    out += `${pad}- Frame: ${node.name || ''}\n`;
+    const children = node.items || node.components || [];
+    for (const c of children) out += formatLayoutPreview(c, indent + 1);
+  } else if (node.type === 'text') {
+    out += `${pad}- Text: "${node.value || ''}"\n`;
+  } else if (node.type === 'button') {
+    out += `${pad}- Button: ${node.label || ''}\n`;
+  } else if (node.type === 'input') {
+    out += `${pad}- Input: ${node.label || ''}\n`;
+  } else if (node.type === 'card') {
+    out += `${pad}- Card: ${node.name || ''}\n`;
+    const children = node.items || node.components || [];
+    for (const c of children) out += formatLayoutPreview(c, indent + 1);
+  }
+  return out;
+}
+
+insertBtn.onclick = function () {
+  if (!cachedLayout) return;
+  parent.postMessage({ pluginMessage: { type: 'insert-ui', layout: cachedLayout } }, '*');
+};
+
 window.onmessage = (event) => {
-  const { type, loading, apiKey, message } = event.data.pluginMessage || {};
+  const { type, loading, apiKey, message, layout, error } = event.data.pluginMessage || {};
   if (type === 'loading') {
     if (loading) {
       btn.disabled = true;
       btn.textContent = 'Generating...';
+      insertBtn.disabled = true;
     } else {
       btn.disabled = false;
       btn.textContent = '✨ Generate UI';
@@ -69,9 +116,13 @@ window.onmessage = (event) => {
   } else if (type === 'api-key') {
     apiKeyInput.value = apiKey || '';
   } else if (type === 'error') {
-    alert(message || 'An error occurred.');
+    alert(message || error || 'An error occurred.');
+    previewDiv.textContent = 'No layout to preview.';
+    insertBtn.disabled = true;
   } else if (type === 'success') {
-    // Optionally show a success message for saving key
     alert(message || 'Saved!');
+  } else if (type === 'preview') {
+    cachedLayout = layout;
+    renderPreview(layout);
   }
 }; 

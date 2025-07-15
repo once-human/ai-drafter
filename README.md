@@ -44,3 +44,10 @@ Example design token JSON:
   "buttonRadius": "8px",
   "padding": "16px"
 }
+
+## Phase 5 - Live Preview & Component Reuse
+
+This phase introduces:
+- UI layout preview before insertion
+- Auto-generation of Figma components for buttons, cards, headers
+- Insert or regenerate options for better control
