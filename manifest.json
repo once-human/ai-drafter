@@ -1,0 +1,8 @@
+{
+  "name": "AI Drafter",
+  "main": "code.js",
+  "ui": "ui.html",
+  "api": "1.0.0",
+  "editorType": ["figma"],
+  "permissions": ["currentuser", "activeusers"]
+} 

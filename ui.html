@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>AI Drafter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <h1>AI Drafter</h1>
+    <label for="prompt">Prompt</label>
+    <textarea id="prompt" placeholder="Describe your UI (e.g., 'Create a login screen')"></textarea>
+
+    <label for="image">Screenshot / Image (optional)</label>
+    <input type="file" id="image" accept="image/*">
+
+    <label for="tokens">Design Tokens (optional)</label>
+    <textarea id="tokens" placeholder="Paste design tokens (e.g., colors, fonts)"></textarea>
+
+    <button id="generate-btn">✨ Generate UI</button>
+  </div>
+  <script src="ui.js"></script>
+</body>
+</html> 

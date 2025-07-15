@@ -1,0 +1,55 @@
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #f8f9fa;
+  margin: 0;
+  padding: 0;
+}
+.container {
+  max-width: 320px;
+  margin: 24px auto;
+  padding: 24px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+h1 {
+  font-size: 1.5rem;
+  color: #007BFF;
+  margin-bottom: 8px;
+}
+label {
+  font-weight: 500;
+  margin-bottom: 4px;
+  color: #333;
+}
+textarea, input[type="file"] {
+  width: 100%;
+  font-size: 1rem;
+  padding: 8px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  background: #f5f7fa;
+  resize: vertical;
+}
+textarea:focus, input[type="file"]:focus {
+  outline: 2px solid #007BFF33;
+  border-color: #007BFF;
+}
+button {
+  background: #007BFF;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 12px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+button:hover {
+  background: #0056b3;
+} 
