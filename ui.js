@@ -92,6 +92,7 @@ function formatLayoutPreview(node, indent = 0, useComponents = false) {
   if (!node) return '';
   const pad = '  '.repeat(indent);
   let out = '';
+  const stateTag = node.state ? ` [${node.state}]` : '';
   if (node.type === 'screen') {
     out += `${pad}Screen: ${node.name || ''}\n`;
     const children = node.components || node.items || [];
@@ -101,13 +102,13 @@ function formatLayoutPreview(node, indent = 0, useComponents = false) {
     const children = node.items || node.components || [];
     for (const c of children) out += formatLayoutPreview(c, indent + 1, useComponents);
   } else if (node.type === 'text') {
-    out += `${pad}- Text: "${node.value || ''}"\n`;
+    out += `${pad}- Text: "${node.value || ''}"${stateTag}\n`;
   } else if (node.type === 'button') {
-    out += `${pad}- Button: ${node.label || ''}${useComponents ? ' [DS Button]' : ''}\n`;
+    out += `${pad}- Button: ${node.label || ''}${useComponents ? ' [DS Button]' : ''}${stateTag}\n`;
   } else if (node.type === 'input') {
-    out += `${pad}- Input: ${node.label || ''}${useComponents ? ' [DS Input]' : ''}\n`;
+    out += `${pad}- Input: ${node.label || ''}${useComponents ? ' [DS Input]' : ''}${stateTag}\n`;
   } else if (node.type === 'card') {
-    out += `${pad}- Card: ${node.name || ''}${useComponents ? ' [DS Card]' : ''}\n`;
+    out += `${pad}- Card: ${node.name || ''}${useComponents ? ' [DS Card]' : ''}${stateTag}\n`;
     const children = node.items || node.components || [];
     for (const c of children) out += formatLayoutPreview(c, indent + 1, useComponents);
   }

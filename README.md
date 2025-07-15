@@ -76,3 +76,10 @@ This phase adds:
 - Fallback rendering if no match is found
 
 You can now plug AI Drafter into your real design systems.
+
+## Phase 9 - Component Variants and States
+
+This phase introduces:
+- AI-generated UI components now support states like hover, pressed, disabled
+- Plugin maps states to appropriate Figma variants
+- Falls back gracefully if no variant match is found

@@ -8,7 +8,7 @@ const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
  * @returns {Promise<GeneratedUI>}
  */
 async function generateUIFromPrompt(prompt, apiKey, tokens) {
-  let systemPrompt = `You are a UI assistant. Based on the user's prompt, image (optional), and design tokens (optional), return a complete structured JSON layout suitable for rendering in Figma. Use the design tokens strictly to influence color, spacing, font, and styling.\nReturn only valid JSON.`;
+  let systemPrompt = `You are a UI assistant. Based on the user's prompt, image (optional), and design tokens (optional), return a complete structured JSON layout suitable for rendering in Figma. Use the design tokens strictly to influence color, spacing, font, and styling.\nIf a component has states (e.g., hover, pressed, disabled), include a \"state\" key in the JSON. For example: {\n  \"type\": \"button\",\n  \"text\": \"Continue\",\n  \"state\": \"hover\"\n}\nReturn only valid JSON.`;
   if (tokens) {
     systemPrompt += `\nDesign system details:\n${tokens}`;
   }
@@ -190,8 +190,24 @@ function cacheLocalComponents() {
   }
 }
 
-function componentMatcher(type, labelOrName) {
-  // Simple mapping, can be extended
+function findVariant(baseName, state) {
+  if (!state) return localComponentMap.get(baseName) || null;
+  // Try "Button / Hover" style
+  const variantName = `${baseName} / ${capitalize(state)}`;
+  if (localComponentMap.has(variantName)) return localComponentMap.get(variantName);
+  // Try lowercase
+  for (const [name, comp] of localComponentMap.entries()) {
+    if (name.toLowerCase() === variantName.toLowerCase()) return comp;
+  }
+  // Fallback to base
+  return localComponentMap.get(baseName) || null;
+}
+function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// Patch componentMatcher to use state
+function componentMatcher(type, labelOrName, state) {
   const map = {
     button: ['Button/Primary', 'Button', 'Button/Default'],
     card: ['Card/Default', 'Card'],
@@ -201,9 +217,10 @@ function componentMatcher(type, labelOrName) {
   };
   const candidates = map[type] || [];
   for (const name of candidates) {
-    if (localComponentMap.has(name)) return localComponentMap.get(name);
+    const variant = findVariant(name, state);
+    if (variant) return variant;
   }
-  // Try fuzzy match
+  // Fuzzy
   for (const [name, comp] of localComponentMap.entries()) {
     if (name.toLowerCase().includes(type)) return comp;
     if (labelOrName && name.toLowerCase().includes((labelOrName + '').toLowerCase())) return comp;
@@ -298,8 +315,13 @@ async function createNodeFromComponent(component, pos, useComponents = false) {
     return text;
   } else if (component.type === 'button') {
     if (useComponents) {
-      const match = componentMatcher('button', component.label);
-      if (match) return match.createInstance();
+      const match = componentMatcher('button', component.label, component.state);
+      if (match) {
+        if (component.state && !match.name.toLowerCase().includes(component.state.toLowerCase())) {
+          figma.notify(`Variant 'Button / ${component.state}' not found, using base button`);
+        }
+        return match.createInstance();
+      }
     }
     const comp = getOrCreateComponent('button', component.label || 'Button', component.style || {});
     const inst = comp.createInstance();
@@ -307,8 +329,13 @@ async function createNodeFromComponent(component, pos, useComponents = false) {
     return inst;
   } else if (component.type === 'card') {
     if (useComponents) {
-      const match = componentMatcher('card', component.name);
-      if (match) return match.createInstance();
+      const match = componentMatcher('card', component.name, component.state);
+      if (match) {
+        if (component.state && !match.name.toLowerCase().includes(component.state.toLowerCase())) {
+          figma.notify(`Variant 'Card / ${component.state}' not found, using base card`);
+        }
+        return match.createInstance();
+      }
     }
     const comp = getOrCreateComponent('card', component.name || 'Card', component.style || {});
     const inst = comp.createInstance();
@@ -316,8 +343,13 @@ async function createNodeFromComponent(component, pos, useComponents = false) {
     return inst;
   } else if (component.type === 'header') {
     if (useComponents) {
-      const match = componentMatcher('header', component.name);
-      if (match) return match.createInstance();
+      const match = componentMatcher('header', component.name, component.state);
+      if (match) {
+        if (component.state && !match.name.toLowerCase().includes(component.state.toLowerCase())) {
+          figma.notify(`Variant 'Header / ${component.state}' not found, using base header`);
+        }
+        return match.createInstance();
+      }
     }
     const comp = getOrCreateComponent('header', component.name || 'Header', component.style || {});
     const inst = comp.createInstance();
