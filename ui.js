@@ -7,6 +7,9 @@ const exportType = document.getElementById('export-type');
 const generateCodeBtn = document.getElementById('generate-code-btn');
 const codeOutput = document.getElementById('code-output');
 const copyCodeBtn = document.getElementById('copy-code-btn');
+const historyList = document.getElementById('history-list');
+const undoBtn = document.getElementById('undo-btn');
+let history = [];
 
 // Request stored API key on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -257,6 +260,69 @@ copyCodeBtn.onclick = function () {
   setTimeout(() => (copyCodeBtn.textContent = 'Copy Code'), 1200);
 };
 
+function addToHistory(layout, usedFramework) {
+  const now = new Date();
+  const ts = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const summary = summarizeLayout(layout);
+  history.unshift({ layout: deepClone(layout), usedFramework, timestamp: ts, summary });
+  if (history.length > 10) history = history.slice(0, 10);
+  renderHistory();
+}
+
+function summarizeLayout(layout) {
+  if (!layout) return 'No layout';
+  if (layout.type === 'multi-screen' && Array.isArray(layout.screens)) {
+    return layout.screens.map(s => `${s.name || 'Screen'} - ${countComponents(s)} components`).join(' | ');
+  }
+  return `${layout.name || 'Screen'} - ${countComponents(layout)} components`;
+}
+function countComponents(node) {
+  if (!node) return 0;
+  let count = 0;
+  if (node.components) count += node.components.length;
+  if (node.items) count += node.items.length;
+  if (node.screens) count += node.screens.length;
+  return count;
+}
+
+function renderHistory() {
+  historyList.innerHTML = '';
+  history.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'history-item';
+    const header = document.createElement('div');
+    header.className = 'history-item-header';
+    header.textContent = item.summary;
+    div.appendChild(header);
+    const meta = document.createElement('div');
+    meta.className = 'history-item-meta';
+    meta.textContent = item.timestamp;
+    div.appendChild(meta);
+    const btns = document.createElement('div');
+    btns.className = 'history-item-btns';
+    const insertBtn = document.createElement('button');
+    insertBtn.textContent = 'Insert Again';
+    insertBtn.onclick = () => {
+      parent.postMessage({ pluginMessage: { type: 'insert-ui', layout: item.layout, useComponents: !!useComponentsCheckbox.checked } }, '*');
+    };
+    btns.appendChild(insertBtn);
+    const exportBtn = document.createElement('button');
+    exportBtn.textContent = 'Export Code';
+    exportBtn.onclick = () => {
+      const language = exportType.value;
+      parent.postMessage({ pluginMessage: { type: 'generate-code', layoutJson: item.layout, language } }, '*');
+    };
+    btns.appendChild(exportBtn);
+    div.appendChild(btns);
+    historyList.appendChild(div);
+  });
+}
+
+undoBtn.onclick = function () {
+  parent.postMessage({ pluginMessage: { type: 'undo-last-insert' } }, '*');
+};
+
+// Add to history on preview
 window.onmessage = (event) => {
   const { type, loading, apiKey, message, layout, error } = event.data.pluginMessage || {};
   if (type === 'loading') {
@@ -280,6 +346,7 @@ window.onmessage = (event) => {
     cachedLayout = layout;
     renderPreview(layout);
     renderManualPreview(layout);
+    addToHistory(layout);
   } else if (type === 'code-output') {
     codeOutput.value = message || '';
   }

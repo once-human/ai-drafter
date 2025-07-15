@@ -90,3 +90,10 @@ This phase allows:
 - Inline editing of AI-generated layout (text, inclusion, order)
 - Users now control exactly what gets inserted
 - Boosts trust and flexibility for designers
+
+## Phase 12 - History, Undo & Session Memory
+
+- Keeps track of all generated layouts in the session
+- Users can re-insert or export from history
+- “Undo Last Insert” removes previously inserted nodes
+- Improves iteration workflow and design feedback loops
