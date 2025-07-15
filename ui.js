@@ -6,16 +6,33 @@ btn.onclick = function () {
   const tokens = document.getElementById('tokens').value;
   const imageInput = document.getElementById('image');
   const imageFile = imageInput.files[0];
-  const imageName = imageFile ? imageFile.name : null;
 
-  parent.postMessage({
-    pluginMessage: {
-      type: 'generate-ui',
-      prompt,
-      tokens,
-      imageName
-    }
-  }, '*');
+  if (imageFile) {
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const base64image = e.target.result.split(',')[1]; // Remove data:image/...;base64,
+      parent.postMessage({
+        pluginMessage: {
+          type: 'generate-ui',
+          prompt,
+          tokens,
+          imageName: imageFile.name,
+          base64image
+        }
+      }, '*');
+    };
+    reader.readAsDataURL(imageFile);
+  } else {
+    parent.postMessage({
+      pluginMessage: {
+        type: 'generate-ui',
+        prompt,
+        tokens,
+        imageName: null,
+        base64image: null
+      }
+    }, '*');
+  }
 };
 
 window.onmessage = (event) => {

@@ -20,3 +20,13 @@ This phase adds:
 - Structured layout JSON returned and rendered using Figma Plugin API
 
 Example prompt: “Create a login screen for a health app”
+
+## Phase 3 - Screenshot to UI Generation
+
+Users can now upload screenshots (e.g. desktop UI) and generate a mobile layout from it using OpenAI GPT-4o Vision API.
+
+### How it works:
+- User uploads image + optional prompt
+- Plugin sends image + text to GPT-4o Vision
+- GPT returns layout in JSON
+- JSON is rendered into editable components inside Figma

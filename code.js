@@ -1,5 +1,6 @@
 // --- OpenAI API Key (placeholder, replace with env or settings in future) ---
 const OPENAI_API_KEY = 'sk-...'; // TODO: Replace with your OpenAI API key
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2MB
 
 /**
  * Generate UI layout from prompt using OpenAI GPT-4o
@@ -33,6 +34,58 @@ async function generateUIFromPrompt(prompt) {
   const data = await response.json();
   let jsonText = data.choices?.[0]?.message?.content;
   // Try to extract JSON if model returns markdown
+  if (jsonText.startsWith('```json')) {
+    jsonText = jsonText.replace(/```json|```/g, '').trim();
+  }
+  try {
+    return JSON.parse(jsonText);
+  } catch (e) {
+    throw new Error('Invalid JSON from OpenAI');
+  }
+}
+
+/**
+ * Generate UI layout from prompt + image using OpenAI GPT-4o Vision
+ * @param {string} prompt
+ * @param {string} base64image
+ * @returns {Promise<GeneratedUI>}
+ */
+async function generateUIFromImage(prompt, base64image) {
+  if (!base64image) throw new Error('No image data provided');
+  // Check image size (base64 is ~33% larger than binary)
+  const imageBytes = Math.floor((base64image.length * 3) / 4);
+  if (imageBytes > MAX_IMAGE_SIZE) {
+    throw new Error('Image is too large (max 2MB)');
+  }
+  const systemMessage = {
+    role: 'system',
+    content: `You are an AI UI assistant. Given a screenshot and context, return a layout description in JSON format that can be rendered in Figma. Output only valid JSON.`
+  };
+  const userMessage = {
+    role: 'user',
+    content: [
+      { type: 'text', text: prompt || 'Analyze this UI and return a layout.' },
+      { type: 'image_url', image_url: { url: `data:image/jpeg;base64,${base64image}` } }
+    ]
+  };
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [systemMessage, userMessage],
+      temperature: 0.2,
+      max_tokens: 900
+    })
+  });
+  if (!response.ok) {
+    throw new Error('OpenAI API error: ' + response.status);
+  }
+  const data = await response.json();
+  let jsonText = data.choices?.[0]?.message?.content;
   if (jsonText.startsWith('```json')) {
     jsonText = jsonText.replace(/```json|```/g, '').trim();
   }
@@ -99,13 +152,19 @@ figma.showUI(__html__, { width: 360, height: 520 });
 figma.ui.onmessage = async (msg) => {
   if (msg.type === 'generate-ui') {
     const prompt = msg.prompt?.trim();
-    if (!prompt) {
-      figma.notify('Please enter a prompt.');
+    const base64image = msg.base64image;
+    if (!prompt && !base64image) {
+      figma.notify('Please enter a prompt or upload an image.');
       return;
     }
     figma.ui.postMessage({ type: 'loading', loading: true });
     try {
-      const ui = await generateUIFromPrompt(prompt);
+      let ui;
+      if (base64image) {
+        ui = await generateUIFromImage(prompt, base64image);
+      } else {
+        ui = await generateUIFromPrompt(prompt);
+      }
       await renderUIInFigma(ui);
       figma.notify('UI generated!');
     } catch (e) {
