@@ -165,6 +165,21 @@ function hexToRgb(hex) {
   };
 }
 
+function applyAutoLayoutProps(frame, props = {}) {
+  frame.layoutMode = (props.layout === 'horizontal' || props.layoutMode === 'horizontal') ? 'HORIZONTAL' : 'VERTICAL';
+  frame.primaryAxisAlignItems = props.primaryAxisAlignItems || 'MIN';
+  frame.counterAxisAlignItems = props.counterAxisAlignItems || 'MIN';
+  frame.itemSpacing = typeof props.itemSpacing === 'number' ? props.itemSpacing : 12;
+  frame.paddingLeft = typeof props.paddingLeft === 'number' ? props.paddingLeft : (typeof props.padding === 'number' ? props.padding : 16);
+  frame.paddingRight = typeof props.paddingRight === 'number' ? props.paddingRight : (typeof props.padding === 'number' ? props.padding : 16);
+  frame.paddingTop = typeof props.paddingTop === 'number' ? props.paddingTop : (typeof props.padding === 'number' ? props.padding : 16);
+  frame.paddingBottom = typeof props.paddingBottom === 'number' ? props.paddingBottom : (typeof props.padding === 'number' ? props.padding : 16);
+  frame.layoutSizingHorizontal = props.layoutSizingHorizontal || 'HUG';
+  frame.layoutSizingVertical = props.layoutSizingVertical || 'HUG';
+  if (props.minWidth) frame.minWidth = props.minWidth;
+  if (props.minHeight) frame.minHeight = props.minHeight;
+}
+
 async function renderUIInFigma(ui) {
   resetComponentRegistry();
   figma.currentPage.selection = [];
@@ -180,23 +195,37 @@ async function createNodeFromComponent(component, pos) {
     frame.name = component.name || 'Frame';
     frame.x = pos.x;
     frame.y = pos.y;
-    frame.layoutMode = component.layout === 'horizontal' ? 'HORIZONTAL' : 'VERTICAL';
-    frame.counterAxisSizingMode = 'AUTO';
-    frame.primaryAxisSizingMode = 'AUTO';
-    frame.paddingLeft = frame.paddingRight = frame.paddingTop = frame.paddingBottom = 24;
-    frame.itemSpacing = 16;
-    if (component.items || component.components) {
-      const children = (component.items || component.components).map((child, i) =>
+    applyAutoLayoutProps(frame, component);
+    if (component.items || component.components || component.children) {
+      const children = (component.items || component.components || component.children).map((child, i) =>
         createNodeFromComponent(child, { x: 0, y: 0 })
       );
       const nodes = await Promise.all(children);
-      nodes.forEach(n => frame.appendChild(n));
+      nodes.forEach(n => {
+        frame.appendChild(n);
+        // Set constraints for children
+        if (n.type === 'TEXT') {
+          n.constraints = { horizontal: 'CENTER', vertical: 'CENTER' };
+        } else if (n.type === 'INSTANCE' && n.mainComponent?.name?.startsWith('Button/')) {
+          n.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
+          n.resizeWithoutConstraints(frame.width - frame.paddingLeft - frame.paddingRight, n.height);
+        } else if (n.type === 'INSTANCE' && n.mainComponent?.name?.startsWith('Card/')) {
+          n.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
+        } else if (n.type === 'INSTANCE' && n.mainComponent?.name?.startsWith('Header/')) {
+          n.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
+        } else if (n.type === 'FRAME') {
+          n.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
+        }
+      });
     }
+    if (component.minWidth) frame.resizeWithoutConstraints(component.minWidth, frame.height);
+    if (component.minHeight) frame.resizeWithoutConstraints(frame.width, component.minHeight);
     return frame;
   } else if (component.type === 'text') {
     const text = figma.createText();
     await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
     text.characters = component.value || '';
+    text.textAutoResize = 'WIDTH_AND_HEIGHT';
     if (component.style) {
       if (component.style.fontSize) text.fontSize = component.style.fontSize;
       if (component.style.fontWeight) text.fontName = { family: 'Inter', style: component.style.fontWeight === 'bold' ? 'Bold' : 'Regular' };
@@ -204,13 +233,19 @@ async function createNodeFromComponent(component, pos) {
     return text;
   } else if (component.type === 'button') {
     const comp = getOrCreateComponent('button', component.label || 'Button', component.style || {});
-    return comp.createInstance();
+    const inst = comp.createInstance();
+    inst.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
+    return inst;
   } else if (component.type === 'card') {
     const comp = getOrCreateComponent('card', component.name || 'Card', component.style || {});
-    return comp.createInstance();
+    const inst = comp.createInstance();
+    inst.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
+    return inst;
   } else if (component.type === 'header') {
     const comp = getOrCreateComponent('header', component.name || 'Header', component.style || {});
-    return comp.createInstance();
+    const inst = comp.createInstance();
+    inst.constraints = { horizontal: 'STRETCH', vertical: 'TOP' };
+    return inst;
   } else {
     return figma.createFrame();
   }

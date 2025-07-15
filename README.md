@@ -51,3 +51,12 @@ This phase introduces:
 - UI layout preview before insertion
 - Auto-generation of Figma components for buttons, cards, headers
 - Insert or regenerate options for better control
+
+## Phase 6 - Auto Layout, Constraints, and Responsive Rules
+
+This phase introduces:
+- Native Figma auto layout support for all frames
+- Smart constraints for resizable and adaptive UIs
+- Standardized padding, spacing, and alignment
+
+AI-generated designs now behave like hand-made components.
