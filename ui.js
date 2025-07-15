@@ -3,6 +3,10 @@ const promptInput = document.getElementById('prompt');
 const apiKeyInput = document.getElementById('api-key');
 const saveKeyBtn = document.getElementById('save-key-btn');
 const useComponentsCheckbox = document.getElementById('useComponents');
+const exportType = document.getElementById('export-type');
+const generateCodeBtn = document.getElementById('generate-code-btn');
+const codeOutput = document.getElementById('code-output');
+const copyCodeBtn = document.getElementById('copy-code-btn');
 
 // Request stored API key on load
 window.addEventListener('DOMContentLoaded', () => {
@@ -233,6 +237,26 @@ insertBtn.onclick = function () {
   parent.postMessage({ pluginMessage: { type: 'insert-ui', layout: filtered, useComponents } }, '*');
 };
 
+generateCodeBtn.onclick = function () {
+  if (!previewData) return;
+  const language = exportType.value;
+  parent.postMessage({
+    pluginMessage: {
+      type: 'generate-code',
+      layoutJson: previewData,
+      language
+    }
+  }, '*');
+};
+
+copyCodeBtn.onclick = function () {
+  if (!codeOutput.value) return;
+  codeOutput.select();
+  document.execCommand('copy');
+  copyCodeBtn.textContent = 'Copied!';
+  setTimeout(() => (copyCodeBtn.textContent = 'Copy Code'), 1200);
+};
+
 window.onmessage = (event) => {
   const { type, loading, apiKey, message, layout, error } = event.data.pluginMessage || {};
   if (type === 'loading') {
@@ -256,6 +280,8 @@ window.onmessage = (event) => {
     cachedLayout = layout;
     renderPreview(layout);
     renderManualPreview(layout);
+  } else if (type === 'code-output') {
+    codeOutput.value = message || '';
   }
 };
 

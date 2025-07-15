@@ -104,6 +104,39 @@ async function generateUIFromImage(prompt, base64image, apiKey, tokens) {
   }
 }
 
+async function generateCodeFromLayout(layout, language, apiKey) {
+  let langLabel = '';
+  if (language === 'tailwind') langLabel = 'Tailwind CSS';
+  else if (language === 'react') langLabel = 'React JSX';
+  else if (language === 'flutter') langLabel = 'Flutter (Dart)';
+  else langLabel = 'HTML';
+  const systemPrompt = `You are a code generator. Given a UI layout in JSON format, generate clean, production-ready code in the selected framework: HTML, Tailwind CSS, React JSX, or Flutter (Dart). Only output the code. No explanations.`;
+  const userPrompt = `Export this layout as ${langLabel} code:\n\n${JSON.stringify(layout, null, 2)}`;
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.2,
+      max_tokens: 1200
+    })
+  });
+  if (!response.ok) throw new Error('OpenAI API error: ' + response.status);
+  const data = await response.json();
+  let code = data.choices?.[0]?.message?.content || '';
+  if (code.startsWith('```')) {
+    code = code.replace(/```[a-zA-Z]*|```/g, '').trim();
+  }
+  return code;
+}
+
 let componentRegistry = {};
 
 function resetComponentRegistry() {
@@ -416,6 +449,21 @@ figma.ui.onmessage = async (msg) => {
       figma.notify('UI inserted to Figma!');
     } catch (e) {
       figma.notify('Error inserting UI: ' + e.message);
+    }
+    return;
+  }
+  if (msg.type === 'generate-code') {
+    const { layoutJson, language, apiKey } = msg;
+    const key = apiKey || (await figma.clientStorage.getAsync('openai_api_key'));
+    if (!key) {
+      figma.ui.postMessage({ type: 'code-output', message: 'Missing OpenAI API key.' });
+      return;
+    }
+    try {
+      const code = await generateCodeFromLayout(layoutJson, language, key);
+      figma.ui.postMessage({ type: 'code-output', message: code });
+    } catch (e) {
+      figma.ui.postMessage({ type: 'code-output', message: 'Error: ' + e.message });
     }
     return;
   }
