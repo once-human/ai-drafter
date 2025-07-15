@@ -183,6 +183,37 @@ function applyAutoLayoutProps(frame, props = {}) {
 async function renderUIInFigma(ui) {
   resetComponentRegistry();
   figma.currentPage.selection = [];
+
+  // Multi-screen support
+  if (ui.type === 'multi-screen' && Array.isArray(ui.screens)) {
+    let x = 100;
+    let y = 100;
+    const screenFrames = [];
+    for (let i = 0; i < ui.screens.length; i++) {
+      const screen = ui.screens[i];
+      const frame = await createNodeFromComponent({ ...screen, type: 'screen' }, { x, y });
+      frame.name = screen.name || `Screen ${i + 1}`;
+      figma.currentPage.appendChild(frame);
+      screenFrames.push(frame);
+      x += 500;
+    }
+    // Add flow arrows (connectors) between screens
+    for (let i = 0; i < screenFrames.length - 1; i++) {
+      const from = screenFrames[i];
+      const to = screenFrames[i + 1];
+      const connector = figma.createConnector();
+      connector.strokeWeight = 2;
+      connector.connectorStart = { endpointNodeId: from.id, magnet: 'AUTO' };
+      connector.connectorEnd = { endpointNodeId: to.id, magnet: 'AUTO' };
+      connector.text = (ui.flows && ui.flows[i]) ? ui.flows[i] : '';
+      figma.currentPage.appendChild(connector);
+    }
+    figma.viewport.scrollAndZoomIntoView(screenFrames);
+    figma.currentPage.selection = screenFrames;
+    return;
+  }
+
+  // Single screen fallback
   const root = await createNodeFromComponent(ui, { x: 100, y: 100 });
   figma.currentPage.appendChild(root);
   figma.viewport.scrollAndZoomIntoView([root]);

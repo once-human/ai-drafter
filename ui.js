@@ -67,6 +67,18 @@ function renderPreview(layout) {
     insertBtn.disabled = true;
     return;
   }
+  if (layout.type === 'multi-screen' && Array.isArray(layout.screens)) {
+    let out = '';
+    layout.screens.forEach(screen => {
+      out += `Screen: ${screen.name || ''}\n`;
+      const children = screen.components || screen.items || screen.children || [];
+      for (const c of children) out += formatLayoutPreview(c, 1);
+      out += '\n';
+    });
+    previewDiv.textContent = out;
+    insertBtn.disabled = false;
+    return;
+  }
   previewDiv.textContent = formatLayoutPreview(layout);
   insertBtn.disabled = false;
 }

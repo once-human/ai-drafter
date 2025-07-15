@@ -60,3 +60,10 @@ This phase introduces:
 - Standardized padding, spacing, and alignment
 
 AI-generated designs now behave like hand-made components.
+
+## Phase 7 - Multi-Screen UI & Flow Arrows
+
+AI Drafter now supports:
+- Generating multiple screens from one prompt
+- Adding prototype flow arrows between them
+- Naming and spacing screens automatically
